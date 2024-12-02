@@ -1,5 +1,5 @@
-use std::{cmp::max, fs::read_to_string};
 use itertools::Itertools;
+use std::{cmp::max, fs::read_to_string};
 
 fn main() {
     println!("{}", count_of_safe_reports("input.txt"));
@@ -18,30 +18,63 @@ fn count_of_safe_reports(path: &str) -> usize {
 
     reports
         .into_iter()
-        .filter(|report| is_safe((*report).clone()))
+        .filter(|report| is_safe_with_dampening((*report).clone()))
         .count()
 }
 
-fn is_safe(mut report: Vec<i32>) -> bool {
-    max_window_difference(report.clone()) <= 3 && match ReportDirection::from_report(report) {
-        ReportDirection::Increasing | ReportDirection::Decreasing => true,
-        _ => false,
+fn dampened_direction(report: Vec<i32>) -> bool {
+    let directions: Vec<Direction> = report
+        .into_iter()
+        .tuple_windows()
+        .map(|(a, b)| Direction::from_samples(a, b))
+        .collect();
+
+    if directions.contains(&Direction::Constant) {
+        return false;
     }
+
+    let num_increasing = directions
+        .clone()
+        .into_iter()
+        .filter(|dir| *dir == Direction::Increasing)
+        .count();
+    let num_decreasing = directions
+        .clone()
+        .into_iter()
+        .filter(|dir| *dir == Direction::Decreasing)
+        .count();
+    let num_constant = directions
+        .into_iter()
+        .filter(|dir| *dir == Direction::Constant)
+        .count();
+
+    num_constant == 0 && num_decreasing < 2 || num_increasing < 2 ||
+    num_constant == 1 && (num_decreasing == 0 || num_increasing == 0)
+}
+
+fn is_safe(mut report: Vec<i32>) -> bool {
+    max_window_difference(report.clone()) <= 3
+        && match ReportDirection::from_report(report) {
+            ReportDirection::Increasing | ReportDirection::Decreasing => true,
+            _ => false,
+        }
+}
+
+fn is_safe_with_dampening(mut report: Vec<i32>) -> bool {
+    max_window_difference(report.clone()) <= 3 &&
+        dampened_direction(report)
 }
 
 fn max_window_difference(report: Vec<i32>) -> i32 {
     report
         .into_iter()
         .tuple_windows()
-        .map(|(a, b)| {
-            (a - b).abs()
-        })
-        .reduce(|total, new| {
-            max(total, new)
-        }).unwrap()
+        .map(|(a, b)| (a - b).abs())
+        .reduce(|total, new| max(total, new))
+        .unwrap()
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 enum Direction {
     Increasing,
     Decreasing,
@@ -67,7 +100,6 @@ impl Direction {
         }
     }
 }
-
 
 #[derive(PartialEq, Debug)]
 enum ReportDirection {
@@ -97,12 +129,8 @@ impl ReportDirection {
         }
 
         match current_direction {
-            None => {
-                ReportDirection::Constant
-            },
-            Some(dir) => {
-                dir.to_report_direction()
-            }
+            None => ReportDirection::Constant,
+            Some(dir) => dir.to_report_direction(),
         }
     }
 }
@@ -128,27 +156,42 @@ mod tests {
 
     #[test]
     fn test_decreasing() {
-        assert_eq!(ReportDirection::from_report(vec![7, 6, 4, 2, 1]), ReportDirection::Decreasing);
+        assert_eq!(
+            ReportDirection::from_report(vec![7, 6, 4, 2, 1]),
+            ReportDirection::Decreasing
+        );
     }
 
     #[test]
     fn test_increasing() {
-        assert_eq!(ReportDirection::from_report(vec![1,2,3,4,5]), ReportDirection::Increasing);
+        assert_eq!(
+            ReportDirection::from_report(vec![1, 2, 3, 4, 5]),
+            ReportDirection::Increasing
+        );
     }
 
     #[test]
     fn test_inconsistent() {
-        assert_eq!(ReportDirection::from_report(vec![1,6,3,4,5]), ReportDirection::Inconsistent);
+        assert_eq!(
+            ReportDirection::from_report(vec![1, 6, 3, 4, 5]),
+            ReportDirection::Inconsistent
+        );
     }
 
     #[test]
     fn test_constant() {
-        assert_eq!(ReportDirection::from_report(vec![1,1,1]), ReportDirection::Constant);
+        assert_eq!(
+            ReportDirection::from_report(vec![1, 1, 1]),
+            ReportDirection::Constant
+        );
     }
 
     #[test]
     fn test_empty_is_constant() {
-        assert_eq!(ReportDirection::from_report(vec![]), ReportDirection::Constant);
+        assert_eq!(
+            ReportDirection::from_report(vec![]),
+            ReportDirection::Constant
+        );
     }
 
     #[test]
