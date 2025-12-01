@@ -1,17 +1,28 @@
 use std::fs::read_to_string;
 
 fn main() {
+    println!("count: {}", part_two())
+}
+
+pub fn part_one() -> u32 {
     let mut dial = Dial::new();
     for line in read_to_string("input.txt").unwrap().lines() {
-        dial.rotate_part2(Dial::parse_rotate(line));
+        dial.rotate(Dial::parse_rotate(line))
     }
+    return dial.times_left_at_zero()
+}
 
-    println!("count: {}", dial.times_left_at_zero())
+pub fn part_two() -> u32 {
+    let mut dial = Dial::new();
+    for line in read_to_string("input.txt").unwrap().lines() {
+        dial.rotate_part2(Dial::parse_rotate(line))
+    }
+    return dial.times_left_at_zero()
 }
 
 struct Dial {
     pointing: i32,
-    times_left_at_zero: usize,
+    times_left_at_zero: u32,
 }
 
 impl Dial {
@@ -45,7 +56,7 @@ impl Dial {
         }
     }
 
-    pub fn times_left_at_zero(&self) -> usize {
+    pub fn times_left_at_zero(&self) -> u32 {
         return self.times_left_at_zero;
     }
 }
