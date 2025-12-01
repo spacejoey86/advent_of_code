@@ -1,20 +1,16 @@
 use std::fs::read_to_string;
 
-fn main() {
-    println!("count: {}", part_two())
-}
-
-pub fn part_one() -> u32 {
+pub fn part_one(input: &str) -> u32 {
     let mut dial = Dial::new();
-    for line in read_to_string("input.txt").unwrap().lines() {
+    for line in input.lines() {
         dial.rotate(Dial::parse_rotate(line))
     }
     return dial.times_left_at_zero()
 }
 
-pub fn part_two() -> u32 {
+pub fn part_two(input: &str) -> u32 {
     let mut dial = Dial::new();
-    for line in read_to_string("input.txt").unwrap().lines() {
+    for line in input.lines() {
         dial.rotate_part2(Dial::parse_rotate(line))
     }
     return dial.times_left_at_zero()
