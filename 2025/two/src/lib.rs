@@ -1,22 +1,18 @@
+use std::ops::RangeInclusive;
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
 
 pub fn part_one(input: &str) -> u64 {
-    let mut sum = 0;
+    return id_iterator(input).filter(|id| id_invalid(*id)).sum();
+}
 
-    for range in input.split(",") {
-        println!("{}", range);
+pub fn id_iterator(input: &str) -> impl Iterator<Item = u64> {
+    input.split(",").flat_map(|range| {
         let (lower, upper) = range.split_once("-").unwrap();
-        println!("{} - {}", lower, upper);
-        for id in lower.parse::<u64>().unwrap()..=upper.parse().unwrap() {
-            if id_invalid(id) {
-                sum += id;
-            }
-        }
-    }
-
-    return sum;
+        RangeInclusive::new(lower.parse::<u64>().unwrap(), upper.parse().unwrap())
+    })
 }
 
 fn id_invalid(id: u64) -> bool {
