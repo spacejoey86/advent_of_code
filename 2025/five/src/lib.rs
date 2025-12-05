@@ -1,37 +1,56 @@
 use std::{
     cmp::{max, min},
-    fs::read_to_string,
+    collections::BinaryHeap,
 };
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Range {
-    pub lower: u64,
-    pub upper: u64,
+    pub lower: i64,
+    pub upper: i64,
+}
+
+impl PartialOrd for Range {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Range {
+    fn eq(&self, other: &Self) -> bool {
+        self.upper == other.upper
+    }
+}
+impl Eq for Range {}
+
+impl Ord for Range {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.upper.cmp(&other.upper)
+    }
 }
 
 impl Range {
-    pub fn contains(&self, ingredient: &u64) -> bool {
+    pub fn contains(&self, ingredient: &i64) -> bool {
         return *ingredient >= self.lower && *ingredient <= self.upper;
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = u64> {
+    pub fn into_iter(self) -> impl Iterator<Item = i64> {
         return self.lower..=self.upper;
     }
 
     pub fn count(&self) -> i64 {
-        return (self.upper - self.lower) as i64 + 1;
+        return (self.upper as i64 - self.lower as i64) + 1;
     }
 
-    // pub fn num_overlap(&self, other: &Range) -> u64 {
-    //     if (self.upper < other.lower) || (self.lower > other.upper) {
-    //         return 0;
-    //     }
-    //     let overlap_range = Range {
-    //         lower: max(self.lower, other.lower),
-    //         upper: min(self.upper, other.upper),
-    //     };
-    //     return overlap_range.count();
-    // }
+    pub fn num_overlap(&self, other: &Range) -> i64 {
+        if (self.upper < other.lower) || (self.lower > other.upper) {
+            return 0;
+        }
+        let overlap_range = Range {
+            lower: max(self.lower, other.lower),
+            upper: min(self.upper, other.upper),
+        };
+        return overlap_range.count();
+    }
 
     // remove the other range from self, potentially returning multiple ranges
     pub fn remove_range(self, other: &Range) -> impl Iterator<Item = Range> {
@@ -81,11 +100,10 @@ impl Range {
             self.upper = max(self.upper, other.upper);
             false
         }
-
     }
 }
 
-pub fn parse(input: &str) -> (Vec<Range>, Vec<u64>) {
+pub fn parse(input: &str) -> (Vec<Range>, Vec<i64>) {
     let ranges = input
         .lines()
         .take_while(|line| *line != "")
@@ -152,7 +170,7 @@ pub fn part_two(input: &str) -> i64 {
 //     let not_overlapping_ranges = ranges.
 // }
 
-pub fn run(input: &str) -> i64 {
+pub fn run_old(input: &str) -> i64 {
     let (mut ranges, _) = parse(input);
     let mut count = 0;
     while ranges.len() > 0 {
@@ -172,7 +190,68 @@ pub fn remove_overlaps(mut ranges: Vec<Range>) -> Vec<Range> {
         eprintln!("here: {:?}", ranges);
         new_ranges.push(range);
     }
-    return new_ranges
+    return new_ranges;
+}
+
+pub fn parse_to_heap(input: &str) -> BinaryHeap<Range> {
+    let mut heap = BinaryHeap::new();
+    let _: Vec<()> = input
+        .lines()
+        .take_while(|line| *line != "")
+        .map(|line| {
+            let (lower, upper) = line.split_once("-").unwrap();
+            heap.push(Range {
+                lower: lower.parse().unwrap(),
+                upper: upper.parse().unwrap(),
+            })
+        })
+        .collect();
+    return heap;
+}
+
+pub fn parse_to_heap_faster(input: &str) -> BinaryHeap<Range> {
+    let mut heap = BinaryHeap::new();
+    let mut bytes = input.bytes().peekable();
+    loop {
+        let mut lower: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'-'
+        {
+            lower = lower * 10 + char as i64 - b'0' as i64
+        }
+        let mut upper: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'\n'
+        {
+            upper = upper * 10 + char as i64 - b'0' as i64
+        }
+        heap.push(Range { lower, upper });
+        if *unsafe { bytes.peek().unwrap_unchecked() } == b'\n' {
+            break;
+        }
+    }
+
+    return heap;
+}
+
+pub fn run(input: &str) -> i64 {
+    let mut sorted_ranges = parse_to_heap_faster(input);
+
+    let mut count = 0;
+    let mut current_range = unsafe { sorted_ranges.pop().unwrap_unchecked() };
+    while let Some(new_range) = sorted_ranges.pop() {
+        if new_range.upper < current_range.lower {
+            // no overlap
+            count += current_range.count();
+            current_range = new_range;
+        } else {
+            // overlap
+            current_range.lower = min(current_range.lower, new_range.lower)
+        }
+    }
+    count += current_range.count();
+
+    return count;
 }
 
 #[cfg(test)]
@@ -209,6 +288,12 @@ mod tests {
     fn part_two_test() {
         let input = read_to_string("input.txt").unwrap();
         assert_eq!(part_two(&input), 352716206375547)
+    }
+
+    #[test]
+    fn part_two_run_example_test() {
+        let input = read_to_string("test_input.txt").unwrap();
+        assert_eq!(run(&input), 14)
     }
 
     #[test]
@@ -294,54 +379,39 @@ mod tests {
 
     #[test]
     fn test_combine_range_not_overlapping() {
-        let mut range = Range{
-            lower: 3,
-            upper: 5
-        };
+        let mut range = Range { lower: 3, upper: 5 };
 
         assert_eq!(range.add_range(&Range { lower: 7, upper: 8 }), true);
-        assert_eq!(range, Range{lower: 3, upper: 5});
+        assert_eq!(range, Range { lower: 3, upper: 5 });
     }
 
     #[test]
     fn test_combine_range_other_bigger_overlap() {
-        let mut range = Range{lower: 3, upper: 5};
-        assert_eq!(range.add_range(&Range{lower: 1, upper: 6}), false);
-        assert_eq!(range, Range{lower: 1, upper: 6});
+        let mut range = Range { lower: 3, upper: 5 };
+        assert_eq!(range.add_range(&Range { lower: 1, upper: 6 }), false);
+        assert_eq!(range, Range { lower: 1, upper: 6 });
     }
 
     #[test]
     fn test_combine_ranges_adjacent() {
-        let mut range = Range {
-            lower: 3,
-            upper: 5
-        };
-        assert_eq!(range.add_range(&Range{lower: 6, upper: 8}), true);
-        assert_eq!(range, Range{lower: 3, upper: 5})
+        let mut range = Range { lower: 3, upper: 5 };
+        assert_eq!(range.add_range(&Range { lower: 6, upper: 8 }), true);
+        assert_eq!(range, Range { lower: 3, upper: 5 })
     }
 
     #[test]
     fn test_combine_ranges_other_inside() {
-        let mut range = Range {
-            lower: 3,
-            upper: 8,
-        };
-        assert_eq!(range.add_range(&Range{lower: 4, upper: 7}), false);
-        assert_eq!(range, Range {
-            lower: 3, upper: 8
-        })
-
+        let mut range = Range { lower: 3, upper: 8 };
+        assert_eq!(range.add_range(&Range { lower: 4, upper: 7 }), false);
+        assert_eq!(range, Range { lower: 3, upper: 8 })
     }
 
     #[test]
     fn test_combine_ranges_edge_overlap() {
-        let mut range = Range {
-            lower: 3,
-            upper: 5,
-        };
+        let mut range = Range { lower: 3, upper: 5 };
 
-        assert_eq!(range.add_range(&Range{lower: 5, upper: 8}), false);
-        assert_eq!(range, Range{lower: 3, upper: 8});
+        assert_eq!(range.add_range(&Range { lower: 5, upper: 8 }), false);
+        assert_eq!(range, Range { lower: 3, upper: 8 });
     }
 
     #[test]
@@ -350,8 +420,14 @@ mod tests {
             lower: 3,
             upper: 10,
         };
-        assert_eq!(false, range.add_range(&Range{lower: 2, upper: 7}));
-        assert_eq!(range, Range{lower: 2, upper: 10});
+        assert_eq!(false, range.add_range(&Range { lower: 2, upper: 7 }));
+        assert_eq!(
+            range,
+            Range {
+                lower: 2,
+                upper: 10
+            }
+        );
     }
 
     #[test]
@@ -360,16 +436,73 @@ mod tests {
             lower: 3,
             upper: 10,
         };
-        assert_eq!(false, range.add_range(&Range{lower: 7, upper: 10}));
-        assert_eq!(range, Range {
-            lower: 3, upper: 10
-        });
+        assert_eq!(
+            false,
+            range.add_range(&Range {
+                lower: 7,
+                upper: 10
+            })
+        );
+        assert_eq!(
+            range,
+            Range {
+                lower: 3,
+                upper: 10
+            }
+        );
     }
 
     #[test]
     fn test_remove_overlaps() {
-        let mut ranges = vec![Range{lower: 3, upper: 6}, Range{lower: 5, upper: 8}, Range{lower: 8, upper: 9}];
+        let mut ranges = vec![
+            Range { lower: 3, upper: 6 },
+            Range { lower: 5, upper: 8 },
+            Range { lower: 8, upper: 9 },
+        ];
         let without_overlaps = remove_overlaps(ranges.clone());
         panic!("{:?}", without_overlaps);
+    }
+
+    #[test]
+    fn test_parse_heap() {
+        let heap = parse_to_heap("1-5\n9-12\n5-8\n\n");
+        assert_eq!(
+            heap.into_sorted_vec(),
+            vec![
+                Range { lower: 1, upper: 5 },
+                Range { lower: 5, upper: 8 },
+                Range {
+                    lower: 9,
+                    upper: 12
+                }
+            ]
+        )
+    }
+
+    #[test]
+    fn test_parse_heap_full_overlaps() {
+        let heap = parse_to_heap("0-1000\n5-990\n10-900\n\n");
+        assert_eq!(
+            heap.into_sorted_vec(),
+            vec![
+                Range {
+                    lower: 10,
+                    upper: 900
+                },
+                Range {
+                    lower: 5,
+                    upper: 990
+                },
+                Range {
+                    lower: 0,
+                    upper: 1000
+                }
+            ]
+        )
+    }
+
+    #[test]
+    fn run_heap_full_overlaps() {
+        assert_eq!(run("0-1000\n5-990\n10-900\n\n"), 1001)
     }
 }
