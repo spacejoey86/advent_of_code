@@ -253,7 +253,7 @@ pub fn parse_to_smallvec_sorted(input: &str) -> SmallVec<[Range; 256]> {
             upper = upper * 10 + char as i64 - b'0' as i64
         }
 
-        ranges.push(Range { lower, upper });
+        // ranges.push(Range { lower, upper });
         match ranges.binary_search_by(|r: &Range| r.upper.cmp(&upper)) {
             Ok(i) => {
                 // upper bounds overlap, combine into one range with the min of lower bounds
@@ -269,6 +269,34 @@ pub fn parse_to_smallvec_sorted(input: &str) -> SmallVec<[Range; 256]> {
             break;
         }
     }
+
+    return ranges;
+}
+
+pub fn parse_to_smallvec_then_sort(input: &str) -> SmallVec<[Range; 256]> {
+    let mut ranges = SmallVec::with_capacity(256);
+    let mut bytes = input.bytes().peekable();
+    loop {
+        let mut lower: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'-'
+        {
+            lower = lower * 10 + char as i64 - b'0' as i64
+        }
+        let mut upper: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'\n'
+        {
+            upper = upper * 10 + char as i64 - b'0' as i64
+        }
+
+        ranges.push(Range { lower, upper });
+
+        if *unsafe { bytes.peek().unwrap_unchecked() } == b'\n' {
+            break;
+        }
+    }
+    ranges.sort_unstable_by_key(|r: &Range| r.upper);
 
     return ranges;
 }
@@ -311,7 +339,7 @@ pub fn parse_to_vec_sorted(input: &str) -> Vec<Range> {
 }
 
 pub fn parse_to_vec_then_sort(input: &str) -> Vec<Range> {
-        let mut ranges = Vec::with_capacity(128);
+    let mut ranges = Vec::with_capacity(128);
     let mut bytes = input.bytes().peekable();
     loop {
         let mut lower: i64 = 0;
@@ -333,7 +361,7 @@ pub fn parse_to_vec_then_sort(input: &str) -> Vec<Range> {
             break;
         }
     }
-    ranges.sort_by_key(|r| r.upper);
+    ranges.sort_unstable_by_key(|r| r.upper);
 
     return ranges;
 }

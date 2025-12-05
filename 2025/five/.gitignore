@@ -1,1 +1,4 @@
 target/
+flamegraph.html
+perf.data
+perf.data.old

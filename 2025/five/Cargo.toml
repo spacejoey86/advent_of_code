@@ -3,6 +3,10 @@ name = "five"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "bin"
+path = "src/main.rs"
+
 [[bench]]
 name = "aoc_bench"
 harness = false
@@ -13,3 +17,7 @@ criterion = "0.8.0"
 
 [dependencies]
 smallvec = "1.15.1"
+
+[profile.fast_debug]
+inherits = "release"
+debug = true
