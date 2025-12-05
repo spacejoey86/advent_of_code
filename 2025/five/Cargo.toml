@@ -3,4 +3,13 @@ name = "five"
 version = "0.1.0"
 edition = "2024"
 
+[[bench]]
+name = "aoc_bench"
+harness = false
+path = "src/bench.rs"
+
+[dev-dependencies]
+criterion = "0.8.0"
+
 [dependencies]
+smallvec = "1.15.1"

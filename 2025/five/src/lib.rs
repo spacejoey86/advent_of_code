@@ -3,6 +3,8 @@ use std::{
     collections::BinaryHeap,
 };
 
+use smallvec::SmallVec;
+
 #[derive(Debug, Clone)]
 pub struct Range {
     pub lower: i64,
@@ -210,7 +212,7 @@ pub fn parse_to_heap(input: &str) -> BinaryHeap<Range> {
 }
 
 pub fn parse_to_heap_faster(input: &str) -> BinaryHeap<Range> {
-    let mut heap = BinaryHeap::new();
+    let mut heap = BinaryHeap::with_capacity(256);
     let mut bytes = input.bytes().peekable();
     loop {
         let mut lower: i64 = 0;
@@ -234,8 +236,110 @@ pub fn parse_to_heap_faster(input: &str) -> BinaryHeap<Range> {
     return heap;
 }
 
+pub fn parse_to_smallvec_sorted(input: &str) -> SmallVec<[Range; 256]> {
+    let mut ranges = SmallVec::with_capacity(256);
+    let mut bytes = input.bytes().peekable();
+    loop {
+        let mut lower: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'-'
+        {
+            lower = lower * 10 + char as i64 - b'0' as i64
+        }
+        let mut upper: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'\n'
+        {
+            upper = upper * 10 + char as i64 - b'0' as i64
+        }
+
+        ranges.push(Range { lower, upper });
+        match ranges.binary_search_by(|r: &Range| r.upper.cmp(&upper)) {
+            Ok(i) => {
+                // upper bounds overlap, combine into one range with the min of lower bounds
+                unsafe { ranges.get_unchecked_mut(i) }.lower =
+                    min(unsafe { ranges.get_unchecked(i) }.lower, lower);
+            }
+            Err(i) => {
+                ranges.insert(i, Range { lower, upper });
+            }
+        }
+
+        if *unsafe { bytes.peek().unwrap_unchecked() } == b'\n' {
+            break;
+        }
+    }
+
+    return ranges;
+}
+
+pub fn parse_to_vec_sorted(input: &str) -> Vec<Range> {
+    let mut ranges = Vec::with_capacity(128);
+    let mut bytes = input.bytes().peekable();
+    loop {
+        let mut lower: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'-'
+        {
+            lower = lower * 10 + char as i64 - b'0' as i64
+        }
+        let mut upper: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'\n'
+        {
+            upper = upper * 10 + char as i64 - b'0' as i64
+        }
+
+        // ranges.push(Range { lower, upper });
+        match ranges.binary_search_by(|r: &Range| r.upper.cmp(&upper)) {
+            Ok(i) => {
+                // upper bounds overlap, combine into one range with the min of lower bounds
+                unsafe { ranges.get_unchecked_mut(i) }.lower =
+                    min(unsafe { ranges.get_unchecked(i) }.lower, lower);
+            }
+            Err(i) => {
+                ranges.insert(i, Range { lower, upper });
+            }
+        }
+
+        if *unsafe { bytes.peek().unwrap_unchecked() } == b'\n' {
+            break;
+        }
+    }
+
+    return ranges;
+}
+
+pub fn parse_to_vec_then_sort(input: &str) -> Vec<Range> {
+        let mut ranges = Vec::with_capacity(128);
+    let mut bytes = input.bytes().peekable();
+    loop {
+        let mut lower: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'-'
+        {
+            lower = lower * 10 + char as i64 - b'0' as i64
+        }
+        let mut upper: i64 = 0;
+        while let char = unsafe { bytes.next().unwrap_unchecked() }
+            && char != b'\n'
+        {
+            upper = upper * 10 + char as i64 - b'0' as i64
+        }
+
+        ranges.push(Range { lower, upper });
+
+        if *unsafe { bytes.peek().unwrap_unchecked() } == b'\n' {
+            break;
+        }
+    }
+    ranges.sort_by_key(|r| r.upper);
+
+    return ranges;
+}
+
 pub fn run(input: &str) -> i64 {
-    let mut sorted_ranges = parse_to_heap_faster(input);
+    let mut sorted_ranges = parse_to_vec_then_sort(input);
 
     let mut count = 0;
     let mut current_range = unsafe { sorted_ranges.pop().unwrap_unchecked() };
