@@ -339,13 +339,16 @@ pub fn parse_to_vec_sorted(input: &str) -> Vec<Range> {
 }
 
 pub fn parse_to_vec_then_sort(input: &str) -> Vec<Range> {
-    let mut ranges = Vec::with_capacity(128);
+    let mut ranges = Vec::with_capacity(256);
     let mut bytes = input.bytes().peekable();
     loop {
         let mut lower: i64 = 0;
         while let char = unsafe { bytes.next().unwrap_unchecked() }
             && char != b'-'
         {
+            if char == b'\n' {
+                break
+            }
             lower = lower * 10 + char as i64 - b'0' as i64
         }
         let mut upper: i64 = 0;
