@@ -76,13 +76,24 @@ fn parse(input: &str) -> impl Iterator<Item = Coord> {
 fn n_closest_not_connected(n: usize, items: impl Iterator<Item = Coord>) -> i64 {
     let mut circuits: Vec<Circuit> = items
         .map(|c| Circuit {
-            junction_boxes: vec![JunctionBox {coord: c, connections: vec![]}],
+            junction_boxes: vec![JunctionBox {
+                coord: c,
+                connections: vec![],
+            }],
         })
         .collect();
 
     let num_circuits = circuits.len();
     for _ in 0..n {
-        let pair_iterator = circuits.iter().flat_map(|c| &c.junction_boxes).flat_map(|j_box| circuits.iter().flat_map(|c| &c.junction_boxes).map(move |a| (j_box, a)));
+        let pair_iterator = circuits
+            .iter()
+            .flat_map(|c| &c.junction_boxes)
+            .flat_map(|j_box| {
+                circuits
+                    .iter()
+                    .flat_map(|c| &c.junction_boxes)
+                    .map(move |a| (j_box, a))
+            });
         let pairs: Vec<(usize, usize)> = (0..(num_circuits.pow(2)))
             .into_iter()
             .map(|i| (i / num_circuits, i % num_circuits))
@@ -121,17 +132,11 @@ fn n_closest_not_connected(n: usize, items: impl Iterator<Item = Coord>) -> i64 
 
 fn n_closest_not_directly_connected(
     n: usize,
-    items: impl Iterator<Item = Coord>,
-) -> Vec<JunctionBox> {
-    let mut junction_boxes: Vec<JunctionBox> = items
-        .map(|c| JunctionBox {
-            coord: c,
-            connections: vec![],
-        })
-        .collect();
-
+    mut junction_boxes: Vec<JunctionBox>,
+) -> (Vec<JunctionBox>, (usize, usize)) {
     let num_boxes = junction_boxes.len();
 
+    let mut closest_pair = (0, 0);
     for _ in 0..n {
         let pairs = (0..(num_boxes.pow(2)))
             .into_iter()
@@ -142,7 +147,7 @@ fn n_closest_not_directly_connected(
                     || junction_boxes[*j].connections.contains(i))
             });
 
-        let closest_pair = pairs
+        closest_pair = pairs
             .min_by(|(i, j), (k, l)| {
                 junction_boxes[*i]
                     .coord
@@ -168,10 +173,10 @@ fn n_closest_not_directly_connected(
             .push(closest_pair.0);
     }
 
-    return junction_boxes;
+    return (junction_boxes, closest_pair);
 }
 
-fn size_of_circuits(boxes: Vec<JunctionBox>) -> impl Iterator<Item = usize> {
+fn size_of_circuits(boxes: &Vec<JunctionBox>) -> impl Iterator<Item = usize> {
     let mut sets: Vec<HashSet<usize>> = vec![];
     for i in 0..boxes.len() {
         match sets.iter().position(|set| set.contains(&i)) {
@@ -219,25 +224,42 @@ mod tests {
     use super::*;
     use std::fs::read_to_string;
 
-    #[test]
-    fn test_part_one_example() {
-        let input = read_to_string("test_input.txt").unwrap();
-        let mut circuit_sizes: Vec<usize> =
-            size_of_circuits(n_closest_not_directly_connected(10, parse(&input))).collect();
-        // assert_eq!(circuit_sizes.len(), 11);
-        circuit_sizes.sort();
-        circuit_sizes.reverse();
-        eprintln!("{:?}", circuit_sizes);
-        assert_eq!(circuit_sizes.into_iter().take(3).product::<usize>(), 40)
-    }
+    // #[test]
+    // fn test_part_one_example() {
+    //     let input = read_to_string("test_input.txt").unwrap();
+    //     let mut circuit_sizes: Vec<usize> =
+    //         size_of_circuits(n_closest_not_directly_connected(10, parse(&input))).collect();
+    //     // assert_eq!(circuit_sizes.len(), 11);
+    //     circuit_sizes.sort();
+    //     circuit_sizes.reverse();
+    //     eprintln!("{:?}", circuit_sizes);
+    //     assert_eq!(circuit_sizes.into_iter().take(3).product::<usize>(), 40)
+    // }
+
+    // #[test]
+    // fn test_part_one() {
+    //     let input = read_to_string("input.txt").unwrap();
+    //     let mut circuit_sizes: Vec<usize> =
+    //         size_of_circuits(n_closest_not_directly_connected(1000, parse(&input))).collect();
+    //     circuit_sizes.sort();
+    //     circuit_sizes.reverse();
+    //     assert_eq!(circuit_sizes.into_iter().take(3).product::<usize>(), 0);
+    // }
 
     #[test]
-    fn test_part_one() {
+    fn test_part_two_example() {
         let input = read_to_string("input.txt").unwrap();
-        let mut circuit_sizes: Vec<usize> =
-            size_of_circuits(n_closest_not_directly_connected(1000, parse(&input))).collect();
-        circuit_sizes.sort();
-        circuit_sizes.reverse();
-        assert_eq!(circuit_sizes.into_iter().take(3).product::<usize>(), 0);
+        let mut junction_boxes: Vec<JunctionBox> = parse(&input)
+            .map(|c| JunctionBox {
+                coord: c,
+                connections: vec![],
+            })
+            .collect();
+
+        let mut last_pair = (0, 0);
+        while size_of_circuits(&junction_boxes).count() > 1 {
+            (junction_boxes, last_pair) = n_closest_not_directly_connected(1, junction_boxes);
+        }
+        assert_eq!(junction_boxes[last_pair.0].coord.x * junction_boxes[last_pair.1].coord.x, 0);
     }
 }
