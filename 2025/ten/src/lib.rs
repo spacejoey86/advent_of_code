@@ -3,6 +3,9 @@ use std::{cmp::min, collections::HashSet};
 use chumsky::{prelude::*, text::whitespace};
 use itertools::Itertools;
 use rayon::prelude::*;
+use z3::{
+    Optimize, Solver, ast::{Ast, Int}
+};
 
 #[derive(PartialEq, Debug)]
 struct Button {
@@ -17,6 +20,33 @@ struct MachineP2 {
 }
 
 impl MachineP2 {
+    fn z3_min_presses(&self) -> i64 {
+        let variables: Vec<Int> = self.buttons.iter().map(|_| Int::fresh_const(".")).collect();
+        let solver = Optimize::new();
+        for variable in &variables {
+            solver.assert(&variable.ge(0));
+        }
+        for (index, joltage_requirement) in self.joltage_requirements.iter().enumerate() {
+            let mut sum: Int = 0.into();
+            for (button_index, button) in self.buttons.iter().enumerate() {
+                if button.indicator_indexes.contains(&index) {
+                    sum = &variables[button_index] + sum;
+                }
+            }
+            solver.assert(&sum.eq(*joltage_requirement));
+        }
+
+        let mut item_count: Int = 0.into();
+        for variable in &variables {
+            item_count = item_count + variable;
+        }
+        solver.minimize(&item_count);
+        solver.check(&[]);
+        // solver.get_model().unwrap().eval(&item_count, model_completion).unwrap()
+        let model = solver.get_model().unwrap();
+        return variables.into_iter().map(|v| model.get_const_interp(&v).unwrap().as_i64().unwrap()).sum();
+    }
+
     fn button_max_presses(&self) -> Vec<i64> {
         self.buttons
             .iter()
@@ -354,18 +384,20 @@ fn part_two(input: &str) -> i64 {
         // .flat_map(|m| m.split())
         .collect();
     machines
-        .into_par_iter()
+        // .into_par_iter()
+        .into_iter()
         .map(|mut machine| {
-            machine.reduce_single_counters();
-            let maxes = machine.button_max_presses();
-            let iterator = p2_combination_iterator(&maxes);
+            machine.z3_min_presses()
+            // machine.reduce_single_counters();
+            // let maxes = machine.button_max_presses();
+            // let iterator = p2_combination_iterator(&maxes);
 
-            let min: Vec<i64> = iterator
-                .filter(|combination| machine.check_joltage_combination(combination))
-                .min_by_key(|c| c.iter().sum::<i64>() + machine.presses_during_reduction)
-                .unwrap();
-            println!("found min for {:?}\n  min: {:?}", machine, min);
-            min.iter().sum::<i64>() + machine.presses_during_reduction
+            // let min: Vec<i64> = iterator
+            //     .filter(|combination| machine.check_joltage_combination(combination))
+            //     .min_by_key(|c| c.iter().sum::<i64>() + machine.presses_during_reduction)
+            //     .unwrap();
+            // println!("found min for {:?}\n  min: {:?}", machine, min);
+            // min.iter().sum::<i64>() + machine.presses_during_reduction
         })
         .sum()
 }
@@ -535,5 +567,11 @@ mod tests {
     fn part_two_test() {
         let input = read_to_string("input.txt").unwrap();
         assert_eq!(part_two(&input), 0)
+    }
+
+    #[test]
+    fn test_z3() {
+        let machine = machine_p2_parser().parse("[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}").unwrap();
+        assert_eq!(machine.z3_min_presses(), 11);
     }
 }
